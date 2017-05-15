@@ -143,7 +143,7 @@ func (d *Daemon) EnableK8sWatcher(reSyncPeriod time.Duration) error {
 	_, ciliumRulesController := cache.NewInformer(
 		cache.NewListWatchFromClient(tprClient, "ciliumnetworkpolicies",
 			v1.NamespaceAll, fields.Everything()),
-		&k8sTypes.CiliumNetworkPolicy{},
+		&k8sTypes.CiliumNetworkPolicyList{},
 		reSyncPeriod,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    d.addCiliumNetworkPolicy,
@@ -777,30 +777,54 @@ func (d *Daemon) addCiliumNetworkPolicy(obj interface{}) {
 		return
 	}
 
-	log.Infof("Imported third-party policy rule '%s'", rule.Metadata.Name)
-}
-
-func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
-	rule, ok := obj.(*k8sTypes.CiliumNetworkPolicy)
+	policies, ok := obj.(*k8sTypes.CiliumNetworkPolicyList)
 	if !ok {
 		log.Warningf("Invalid third-party objected, expected CiliumNetworkPolicy, got %+v", obj)
 		return
 	}
 
-	log.Debugf("Deleting k8s TPR CiliumNetworkPolicy %+v", rule)
+	log.Debugf("Adding k8s TPR CiliumNetworkPolicyList %+v", policies)
 
-	rules, err := rule.Parse()
-	if err != nil {
-		log.Warningf("Ignoring invalid third-party policy rule: %s", err)
+	for _, policy := range policies.Items {
+		_, err := policy.Parse()
+		if err != nil {
+			log.Warningf("Ignoring invalid third-party policy: %s", err)
+			return
+		}
+	}
+
+	for _, policy := range policies.Items {
+		rules, _ := policy.Parse()
+		if err := d.PolicyAdd(rules); err != nil {
+			log.Warningf("Unable to add kubernetes network policy %+v: %s", rules, err)
+			return
+		}
+	}
+}
+
+func (d *Daemon) deleteCiliumNetworkPolicy(obj interface{}) {
+	policies, ok := obj.(*k8sTypes.CiliumNetworkPolicyList)
+	if !ok {
+		log.Warningf("Invalid third-party objected, expected CiliumNetworkPolicy, got %+v", obj)
 		return
 	}
 
-	if err := d.PolicyDelete(rules[0].Labels); err != nil {
-		log.Warningf("Error while adding kubernetes network policy %+v: %s", rules, err)
-		return
+	log.Debugf("Deleting k8s TPR CiliumNetworkPolicyList %+v", policies)
+
+	for _, policy := range policies.Items {
+		_, err := policy.Parse()
+		if err != nil {
+			log.Warningf("Ignoring invalid third-party policy: %s", err)
+			return
+		}
 	}
 
-	log.Infof("Deleted third-party policy rule '%s'", rule.Metadata.Name)
+	for _, policy := range policies.Items {
+		rules, _ := policy.Parse()
+		if err := d.PolicyDelete(rules[0].Labels); err != nil {
+			log.Warningf("Unable to delete kubernetes network policy %+v: %s", rules, err)
+		}
+	}
 }
 
 func (d *Daemon) updateCiliumNetworkPolicy(oldObj interface{}, newObj interface{}) {

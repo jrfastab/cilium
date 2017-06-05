@@ -330,6 +330,24 @@ struct proxy6_tbl_value {
 
 #ifdef USE_XDP
 
+#define PKT_PREFIX xdp
+#define PKT_BUFF struct xdp_md
+#define PKT_BUFF_LEN(xdp) xdp->data_end - xdp->data
+#define PKT_BUFF_DATA(xdp) xdp->data
+#define PKT_BUFF_DATA_END(xdp) xdp->data_end
+#define PKT_BUFF_PROTOCOL(xdp) xdp_get_protocol(xdp)
+#define PKT_BUFF_CLEAR(skb)
+#define PKT_BUFF_IFINDEX(xdp)  0
+
+#define PKT_STORE_BYTES(...) xdp_store_bytes(__VA_ARGS__)
+#define PKT_LOAD_BYTES(...)  xdp_load_bytes(__VA_ARGS__)
+
+#define CSUM_DIFF(a,b,c,d,e) xdp_csum_diff((__be32 *)a, (__u32)b, (__be32 *)c, (__u32)d, (__u32)e)
+#define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, (__u32)b, (__u64)c, (__u64)d, (__u64)e)
+#define L3_CSUM_REPLACE(a,b,c,d,e) xdp_l3_csum_replace((struct xdp_md *)a, (__u32)b, (__u64)c, (__u64)d, (__u64)e)
+
+#define REDIRECT(...) XDP_TX
+
 static inline __be16 xdp_get_protocol(struct xdp_md *xdp)
 {
 	void *data = (void *) (long) xdp->data;
@@ -384,6 +402,26 @@ static inline int xdp_load_bytes(struct xdp_md *xdp, __u32 offset,
 
 	return 0;
 }
+#else
+
+#define PKT_PREFIX skb
+#define PKT_BUFF struct __sk_buff
+#define PKT_BUFF_LEN(skb) skb->len
+#define PKT_BUFF_DATA(skb) skb->data
+#define PKT_BUFF_DATA_END(skb) skb->data_end
+#define PKT_BUFF_PROTOCOL(skb) skb->protocol
+#define PKT_BUFF_CLEAR(skb) bpf_clear_cb(skb)
+#define PKT_BUFF_IFINDEX(skb) skb->ingress_ifindex
+
+#define PKT_STORE_BYTES(...) skb_store_bytes(__VA_ARGS__)
+#define PKT_LOAD_BYTES(...)  skb_load_bytes(__VA_ARGS__)
+
+#define CSUM_DIFF(...) csum_diff(__VA_ARGS__)
+#define L4_CSUM_REPLACE(...) l4_csum_replace(__VA_ARGS__)
+#define L3_CSUM_REPLACE(...) l3_csum_replace(__VA_ARGS__)
+
+#define REDIRECT(ifindex, flags) redirect(ifindex, flags)
+
 #endif
 
 #endif

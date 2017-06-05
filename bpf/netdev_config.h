@@ -19,6 +19,8 @@
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
+#ifndef USE_XDP
 #define DROP_NOTIFY
+#endif
 #define DEBUG
 #define ENABLE_IPV4

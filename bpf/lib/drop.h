@@ -143,12 +143,12 @@ static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
 	return exitcode;
 }
 #else
-static inline int send_drop_notify_error(struct __sk_buff *skb, int error, int exitcode)
+static inline int send_drop_notify_error(PKT_BUFF *skb, int error, int exitcode)
 {
 	return exitcode;
 }
 
-static inline int send_drop_notify(struct __sk_buff *skb, __u32 src, __u32 dst,
+static inline int send_drop_notify(PKT_BUFF *skb, __u32 src, __u32 dst,
 				    __u32 dst_id, __u32 ifindex, int exitcode)
 {
 	return exitcode;

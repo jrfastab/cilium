@@ -31,6 +31,7 @@
 #define __LB_H_
 
 #include "csum.h"
+#include "hash.h"
 
 /* FIXME: Make configurable */
 #define CILIUM_LB_MAP_MAX_ENTRIES	65536
@@ -91,7 +92,7 @@ struct bpf_elf_map __section_maps cilium_lb4_rr_seq = {
 #endif
 
 #ifdef HAVE_MAP_VAL_ADJ
-static inline int lb_next_rr(struct __sk_buff *skb,
+static inline int lb_next_rr(PKT_BUFF *skb,
 			     struct lb_sequence *seq,
 			     __be16 hash)
 {
@@ -108,6 +109,29 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 }
 #endif
 
+#if USE_XDP
+struct lb6_hash_key {
+	mac_t smac;
+	mac_t dmac;
+	union v6addr daddr;
+	union v6addr saddr;
+	__u16 dport;
+	__u16 sport;
+};
+
+static inline __u32 lb_enforce_rehash(struct xdp_md *xdp)
+{
+	struct lb6_hash_key key = {};
+	struct ipv6hdr *ip6 = (void *) (long ) xdp->data + ETH_HLEN;
+
+	ipv6_addr_copy(&key.daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&key.saddr, (union v6addr *)&ip6->saddr);
+	/* tbd get rest of key */
+
+	return jhash2((__u32 *)&key, sizeof(key), JHASH_INITVAL);
+}
+
+#else
 static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
 {
 #ifdef HAVE_SET_HASH_INVALID
@@ -116,13 +140,15 @@ static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
 	/* Ugly workaround for 4.8 kernel where we don't have this function. */
 	__u32 tmp;
 
-	skb_load_bytes(skb,  0, &tmp, sizeof(tmp));
-	skb_store_bytes(skb, 0, &tmp, sizeof(tmp), BPF_F_INVALIDATE_HASH);
+	PKT_LOAD_BYTES(skb,  0, &tmp, sizeof(tmp));
+	PKT_STORE_BYTES(skb, 0, &tmp, sizeof(tmp), BPF_F_INVALIDATE_HASH);
 #endif
 	return get_hash_recalc(skb);
 }
+#endif
 
-static inline int lb6_select_slave(struct __sk_buff *skb,
+
+static inline int lb6_select_slave(PKT_BUFF *skb,
 				   struct lb6_key *key,
 				   __u16 count, __u16 weight)
 {
@@ -148,11 +174,39 @@ static inline int lb6_select_slave(struct __sk_buff *skb,
 	return slave;
 }
 
-static inline int lb4_select_slave(struct __sk_buff *skb,
+#if USE_XDP
+struct lb4_hash_key {
+	mac_t smac;
+	mac_t dmac;
+	__u32 daddr;
+	__u32 saddr;
+	__u16 dport;
+	__u16 sport;
+};
+
+static inline __u32 lb4_enforce_rehash(struct xdp_md *xdp)
+{
+	struct lb4_hash_key key = {};
+	struct iphdr *ip4 = (void *) (long ) xdp->data + ETH_HLEN;
+
+	key.daddr = ip4->saddr;
+	key.saddr = ip4->daddr;
+	/* tbd get rest of key */
+
+	return jhash2((__u32 *)&key, sizeof(key), JHASH_INITVAL);
+}
+#else
+static inline __u32 lb4_enforce_rehash(struct __sk_buff *skb)
+{
+	return lb_enforce_rehash(skb);
+}
+#endif
+
+static inline int lb4_select_slave(PKT_BUFF *skb,
 				   struct lb4_key *key,
 				   __u16 count, __u16 weight)
 {
-	__u32 hash = lb_enforce_rehash(skb);
+	__u32 hash = lb4_enforce_rehash(skb);
 	int slave = 0;
 
 #ifdef HAVE_MAP_VAL_ADJ
@@ -174,7 +228,7 @@ static inline int lb4_select_slave(struct __sk_buff *skb,
 	return slave;
 }
 
-static inline int __inline__ extract_l4_port(struct __sk_buff *skb, __u8 nexthdr,
+static inline int __inline__ extract_l4_port(PKT_BUFF *skb, __u8 nexthdr,
 					     int l4_off, __u16 *port)
 {
 	int ret;
@@ -200,7 +254,7 @@ static inline int __inline__ extract_l4_port(struct __sk_buff *skb, __u8 nexthdr
 	return 0;
 }
 
-static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nexthdr,
+static inline int __inline__ reverse_map_l4_port(PKT_BUFF *skb, __u8 nexthdr,
 						 __u16 port, int l4_off,
 						 struct csum_offset *csum_off)
 {
@@ -236,7 +290,7 @@ static inline int __inline__ reverse_map_l4_port(struct __sk_buff *skb, __u8 nex
 	return 0;
 }
 
-static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
+static inline int __inline__ __lb6_rev_nat(PKT_BUFF *skb, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
 					 struct lb6_reverse_nat *nat)
@@ -287,7 +341,7 @@ static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
  * @arg tuple		tuple
  * @arg saddr_tuple	If set, tuple address will be updated with new source address
  */
-static inline int __inline__ lb6_rev_nat(struct __sk_buff *skb, int l4_off,
+static inline int __inline__ lb6_rev_nat(PKT_BUFF *skb, int l4_off,
 					 struct csum_offset *csum_off, __u16 index,
 					 struct ipv6_ct_tuple *tuple, int flags)
 {
@@ -316,7 +370,7 @@ static inline int __inline__ lb6_rev_nat(struct __sk_buff *skb, int l4_off,
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_ct_tuple *tuple,
+static inline int __inline__ lb6_extract_key(PKT_BUFF *skb, struct ipv6_ct_tuple *tuple,
 					     int l4_off, struct lb6_key *key,
 					     struct csum_offset *csum_off, int dir)
 {
@@ -333,7 +387,7 @@ static inline int __inline__ lb6_extract_key(struct __sk_buff *skb, struct ipv6_
 #endif
 }
 
-static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
+static inline struct lb6_service *lb6_lookup_service(PKT_BUFF *skb,
 						    struct lb6_key *key)
 {
 #ifdef LB_L4
@@ -364,7 +418,7 @@ static inline struct lb6_service *lb6_lookup_service(struct __sk_buff *skb,
 	return NULL;
 }
 
-static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
+static inline struct lb6_service *lb6_lookup_slave(PKT_BUFF *skb,
 						   struct lb6_key *key, __u16 slave)
 {
 	struct lb6_service *svc;
@@ -380,7 +434,7 @@ static inline struct lb6_service *lb6_lookup_slave(struct __sk_buff *skb,
 	return NULL;
 }
 
-static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_dst, __u8 nexthdr,
+static inline int __inline__ lb6_xlate(PKT_BUFF *skb, union v6addr *new_dst, __u8 nexthdr,
 				       int l3_off, int l4_off, struct csum_offset *csum_off,
 				       struct lb6_key *key, struct lb6_service *svc)
 {
@@ -408,7 +462,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 	return TC_ACT_OK;
 }
 
-static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4_off,
+static inline int __inline__ lb6_local(PKT_BUFF *skb, int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb6_key *key,
 				       struct ipv6_ct_tuple *tuple, struct lb6_service *svc,
 				       struct ct_state *state)
@@ -430,7 +484,7 @@ static inline int __inline__ lb6_local(struct __sk_buff *skb, int l3_off, int l4
 			 csum_off, key, svc);
 }
 
-static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
+static inline int __inline__ __lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 struct lb4_reverse_nat *nat,
@@ -451,7 +505,7 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		old_sip = tuple->saddr;
 		tuple->saddr = new_sip = nat->address;
 	} else {
-		ret = skb_load_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
+		ret = PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -466,13 +520,13 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		 * address the new destination address */
 		__be32 old_dip;
 
-		ret = skb_load_bytes(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
+		ret = PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
 		if (IS_ERR(ret))
 			return ret;
 
 		cilium_trace_lb(skb, DBG_LB4_LOOPBACK_SNAT_REV, old_dip, old_sip);
 
-		ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, daddr), &old_sip, 4, 0);
+		ret = PKT_STORE_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), &old_sip, 4, 0);
 		if (IS_ERR(ret))
 			return DROP_WRITE_ERROR;
 
@@ -482,12 +536,12 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		tuple->saddr = old_sip;
 	}
 
-        ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), &new_sip, 4, 0);
+        ret = PKT_STORE_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), &new_sip, 4, 0);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
 	sum = CSUM_DIFF(&old_sip, 4, &new_sip, 4, sum);
-	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
+	if (L3_CSUM_REPLACE(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
 	if (csum_off->offset &&
@@ -507,7 +561,7 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
  * @arg index		reverse NAT index
  * @arg tuple		tuple
  */
-static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int l4_off,
+static inline int __inline__ lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ct_state *ct_state,
 					 struct ipv4_ct_tuple *tuple, int flags)
@@ -535,7 +589,7 @@ static inline int __inline__ lb4_rev_nat(struct __sk_buff *skb, int l3_off, int 
  *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
  *   - Negative error code
  */
-static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_ct_tuple *tuple,
+static inline int __inline__ lb4_extract_key(PKT_BUFF *skb, struct ipv4_ct_tuple *tuple,
 					     int l4_off, struct lb4_key *key,
 					     struct csum_offset *csum_off, int dir)
 {
@@ -549,7 +603,7 @@ static inline int __inline__ lb4_extract_key(struct __sk_buff *skb, struct ipv4_
 #endif
 }
 
-static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
+static inline struct lb4_service *lb4_lookup_service(PKT_BUFF *skb,
 						     struct lb4_key *key)
 {
 #ifdef LB_L4
@@ -582,7 +636,7 @@ static inline struct lb4_service *lb4_lookup_service(struct __sk_buff *skb,
 	return NULL;
 }
 
-static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
+static inline struct lb4_service *lb4_lookup_slave(PKT_BUFF *skb,
 						   struct lb4_key *key, __u16 slave)
 {
 	struct lb4_service *svc;
@@ -599,7 +653,7 @@ static inline struct lb4_service *lb4_lookup_slave(struct __sk_buff *skb,
 }
 
 static inline int __inline__
-lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
+lb4_xlate(PKT_BUFF *skb, __be32 *new_daddr, __be32 *new_saddr,
 	  __be32 *old_saddr, __u8 nexthdr, int l3_off, int l4_off,
 	  struct csum_offset *csum_off, struct lb4_key *key,
 	  struct lb4_service *svc)
@@ -607,7 +661,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	int ret;
 	__be32 sum;
 
-	ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, daddr), new_daddr, 4, 0);
+	ret = PKT_STORE_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), new_daddr, 4, 0);
 	if (ret < 0)
 		return DROP_WRITE_ERROR;
 
@@ -615,14 +669,14 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 
 	if (new_saddr && *new_saddr) {
 		cilium_trace_lb(skb, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
-		ret = skb_store_bytes(skb, l3_off + offsetof(struct iphdr, saddr), new_saddr, 4, 0);
+		ret = PKT_STORE_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), new_saddr, 4, 0);
 		if (ret < 0)
 			return DROP_WRITE_ERROR;
 
 		sum = CSUM_DIFF(old_saddr, 4, new_saddr, 4, sum);
 	}
 
-	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
+	if (L3_CSUM_REPLACE(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
 	if (csum_off->offset) {
@@ -645,7 +699,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 }
 
 #ifdef ENABLE_IPV4
-static inline int __inline__ lb4_local(struct __sk_buff *skb, int l3_off, int l4_off,
+static inline int __inline__ lb4_local(PKT_BUFF *skb, int l3_off, int l4_off,
 				       struct csum_offset *csum_off, struct lb4_key *key,
 				       struct ipv4_ct_tuple *tuple, struct lb4_service *svc,
 				       struct ct_state *state, __be32 saddr)

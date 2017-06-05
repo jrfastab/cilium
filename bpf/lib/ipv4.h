@@ -22,12 +22,12 @@
 
 #include "dbg.h"
 
-static inline int ipv4_load_daddr(struct __sk_buff *skb, int off, __u32 *dst)
+static inline int ipv4_load_daddr(PKT_BUFF *skb, int off, __u32 *dst)
 {
-	return skb_load_bytes(skb, off + offsetof(struct iphdr, daddr), dst, 4);
+	return PKT_LOAD_BYTES(skb, off + offsetof(struct iphdr, daddr), dst, 4);
 }
 
-static inline int ipv4_dec_ttl(struct __sk_buff *skb, int off, struct iphdr *ip4)
+static inline int ipv4_dec_ttl(PKT_BUFF *skb, int off, struct iphdr *ip4)
 {
 	__u8 new_ttl, ttl = ip4->ttl;
 
@@ -37,7 +37,7 @@ static inline int ipv4_dec_ttl(struct __sk_buff *skb, int off, struct iphdr *ip4
 	new_ttl = ttl - 1;
 	/* l3_csum_replace() takes at min 2 bytes, zero extended. */
 	l3_csum_replace(skb, off + offsetof(struct iphdr, check), ttl, new_ttl, 2);
-	skb_store_bytes(skb, off + offsetof(struct iphdr, ttl), &new_ttl, sizeof(new_ttl), 0);
+	PKT_STORE_BYTES(skb, off + offsetof(struct iphdr, ttl), &new_ttl, sizeof(new_ttl), 0);
 
 	return 0;
 }

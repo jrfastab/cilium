@@ -47,13 +47,13 @@
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
+static inline int l4_modify_port(PKT_BUFF *skb, int l4_off, int off,
 				 struct csum_offset *csum_off, __u16 port, __u16 old_port)
 {
 	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
 		return DROP_CSUM_L4;
 
-	if (skb_store_bytes(skb, l4_off + off, &port, sizeof(port), 0) < 0)
+	if (PKT_STORE_BYTES(skb, l4_off + off, &port, sizeof(port), 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	return 0;
@@ -75,7 +75,7 @@ static inline int l4_modify_port(struct __sk_buff *skb, int l4_off, int off,
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
+static inline int l4_port_map_in(PKT_BUFF *skb, int l4_off,
 				 struct csum_offset *csum_off,
 				 struct portmap *map, __u16 dport)
 {
@@ -104,7 +104,7 @@ static inline int l4_port_map_in(struct __sk_buff *skb, int l4_off,
  *
  * Return 0 on success or a negative DROP_* reason
  */
-static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
+static inline int l4_port_map_out(PKT_BUFF *skb, int l4_off,
 				  struct csum_offset *csum_off,
 				  struct portmap *map, __u16 sport)
 {
@@ -117,9 +117,9 @@ static inline int l4_port_map_out(struct __sk_buff *skb, int l4_off,
 	return l4_modify_port(skb, l4_off, TCP_SPORT_OFF, csum_off, map->from, sport);
 }
 
-static inline int l4_load_port(struct __sk_buff *skb, int off, __u16 *port)
+static inline int l4_load_port(PKT_BUFF *skb, int off, __u16 *port)
 {
-        return skb_load_bytes(skb, off, port, sizeof(__u16));
+        return PKT_LOAD_BYTES(skb, off, port, sizeof(__u16));
 }
 
 /* Structure to define an L4 port which may ingress into an endpoint */

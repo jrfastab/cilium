@@ -21,6 +21,7 @@
 #include <bpf_features.h>
 #include <bpf/api.h>
 #include <linux/ipv6.h>
+#include <linux/if_ether.h>
 #include <linux/in.h>
 #include <stdint.h>
 
@@ -326,5 +327,63 @@ struct proxy6_tbl_value {
 	__u16 orig_dport;
 	__u16 lifetime;
 } __attribute__((packed));
+
+#ifdef USE_XDP
+
+static inline __be16 xdp_get_protocol(struct xdp_md *xdp)
+{
+	void *data = (void *) (long) xdp->data;
+	void *end = (void *) (long) xdp->data_end;
+	struct ethhdr *eth = data;
+
+	if (data + offsetof(struct ethhdr, h_proto) + sizeof(eth->h_proto) > end)
+		return 0;
+
+	return eth->h_proto;
+}
+
+static inline int xdp_store_bytes(struct xdp_md *xdp, __u32 offset,
+				  const void *from, __u32 len, __u64 flags)
+{
+	void *ptr = (void *) (long) xdp->data;
+	void *end = (void *) (long) xdp->data_end;
+
+	/* One might suspect an optimization would be to only do bounds check
+	 * once per pkt, where length is calculated upfront. Saving a few
+	 * instructions per store. However, this proves to be a bit tricky
+	 * to get past all versions of compilers and I suspect that the
+	 * performance increase is minimal anyways. We can revisit this later.
+	 */
+	if (ptr + offset + len > end)
+		return DROP_INVALID;
+
+	memcpy(ptr + offset, from , len);
+
+	/* TBD deal with hash recalculation */
+	return 0;
+}
+
+static inline int xdp_load_bytes(struct xdp_md *xdp, __u32 offset,
+				 void * to, __u32 len)
+{
+	void *ptr = (void *) (long) xdp->data;
+	void *end = (void *) (long) xdp->data_end;
+
+	/* One might suspect an optimization would be to only do bounds check
+	 * once per pkt, where length is calculated upfront. Saving a few
+	 * instructions per store. However, this proves to be a bit tricky
+	 * to get past all versions of compilers and I suspect that the
+	 * performance increase is minimal anyways. We can revisit this later.
+	 */
+	if (ptr + offset + len > end)
+		return DROP_INVALID;
+
+	ptr += offset;
+	if (ptr != to)
+		memcpy(to, ptr, len);
+
+	return 0;
+}
+#endif
 
 #endif

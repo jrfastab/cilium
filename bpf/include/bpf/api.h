@@ -197,6 +197,9 @@ static int BPF_FUNC(skb_set_tunnel_opt, struct __sk_buff *skb,
 static int BPF_FUNC2(skb_event_output, struct __sk_buff *skb, void *map, uint64_t index,
 		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
 
+static int BPF_FUNC2(xdp_event_output, struct xdp_md *xdp, void *map, uint64_t index,
+		     const void *data, uint32_t size) = (void *)BPF_FUNC_perf_event_output;
+
 /** LLVM built-ins, mem*() routines work for constant size */
 
 #ifndef lock_xadd

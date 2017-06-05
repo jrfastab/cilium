@@ -101,7 +101,7 @@ static inline int lb_next_rr(struct __sk_buff *skb,
 	if (offset < LB_RR_MAX_SEQ) {
 		/* Slave 0 is reserved for the master slot */
 		slave = seq->idx[offset] + 1;
-		cilium_trace(skb, DBG_RR_SLAVE_SEL, hash, slave);
+		cilium_trace_lb(skb, DBG_RR_SLAVE_SEL, hash, slave);
 	}
 
 	return slave;
@@ -142,7 +142,7 @@ static inline int lb6_select_slave(struct __sk_buff *skb,
 	if (slave == 0) {
 		/* Slave 0 is reserved for the master slot */
 		slave = (hash % count) + 1;
-		cilium_trace(skb, DBG_PKT_HASH, hash, slave);
+		cilium_trace_lb(skb, DBG_PKT_HASH, hash, slave);
 	}
 
 	return slave;

@@ -20,6 +20,7 @@
 
 #include <linux/ipv6.h>
 
+#include "common.h"
 #include "dbg.h"
 #define IPV6_FLOWINFO_MASK              bpf_htonl(0x0FFFFFFF)
 #define IPV6_FLOWLABEL_MASK             bpf_htonl(0x000FFFFF)
@@ -58,7 +59,7 @@ static inline int ipv6_authlen(struct ipv6_opt_hdr *opthdr)
 	return (opthdr->hdrlen + 2) << 2;
 }
 
-static inline int __inline__ ipv6_hdrlen(struct __sk_buff *skb, int l3_off, __u8 *nexthdr)
+static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthdr)
 {
 	int i, len = sizeof(struct ipv6hdr);
 	struct ipv6_opt_hdr opthdr;
@@ -77,7 +78,7 @@ static inline int __inline__ ipv6_hdrlen(struct __sk_buff *skb, int l3_off, __u8
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			if (skb_load_bytes(skb, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
+			if (PKT_LOAD_BYTES(skb, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
 				return DROP_INVALID;
 
 			nh = opthdr.nexthdr;
@@ -176,28 +177,28 @@ static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 	return 0;
 }
 
-static inline int ipv6_load_saddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int ipv6_load_saddr(PKT_BUFF *skb, int off, union v6addr *dst)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
+	return PKT_LOAD_BYTES(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static inline int ipv6_store_saddr(struct __sk_buff *skb, __u8 *addr, int off)
+static inline int ipv6_store_saddr(PKT_BUFF *skb, __u8 *addr, int off)
 {
-	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
+	return PKT_STORE_BYTES(skb, off + offsetof(struct ipv6hdr, saddr), addr, 16, 0);
 }
 
-static inline int ipv6_load_daddr(struct __sk_buff *skb, int off, union v6addr *dst)
+static inline int ipv6_load_daddr(PKT_BUFF *skb, int off, union v6addr *dst)
 {
-	return skb_load_bytes(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
+	return PKT_LOAD_BYTES(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
 			      sizeof(((struct ipv6hdr *)NULL)->daddr));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
-static inline int ipv6_store_daddr(struct __sk_buff *skb, __u8 *addr, int off)
+static inline int ipv6_store_daddr(PKT_BUFF *skb, __u8 *addr, int off)
 {
-	return skb_store_bytes(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
+	return PKT_STORE_BYTES(skb, off + offsetof(struct ipv6hdr, daddr), addr, 16, 0);
 }
 
 static inline int ipv6_load_nexthdr(struct __sk_buff *skb, int off, __u8 *nexthdr)

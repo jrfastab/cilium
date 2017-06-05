@@ -338,6 +338,7 @@ struct proxy6_tbl_value {
 #define PKT_BUFF_PROTOCOL(xdp) xdp_get_protocol(xdp)
 #define PKT_BUFF_CLEAR(skb)
 #define PKT_BUFF_IFINDEX(xdp)  0
+#define PKT_BUFF_CLEAR(skb)
 
 #define PKT_STORE_BYTES(...) xdp_store_bytes(__VA_ARGS__)
 #define PKT_LOAD_BYTES(...)  xdp_load_bytes(__VA_ARGS__)

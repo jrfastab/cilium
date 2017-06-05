@@ -55,10 +55,11 @@
 #include "lib/lb.h"
 
 #ifndef LB_DISABLE_IPV6
-static inline int handle_ipv6(struct __sk_buff *skb)
+static inline int handle_ipv6(PKT_BUFF *skb)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
+	void *data = (void *) (long) PKT_BUFF_DATA(skb);
+	void *data_end = (void *) (long) PKT_BUFF_DATA_END(skb);
+	__u32 ingress = PKT_BUFF_IFINDEX(skb);
 	struct lb6_key key = {};
 	struct lb6_service *svc;
 	struct ipv6hdr *ip6 = data + ETH_HLEN;
@@ -72,7 +73,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	if (data + ETH_HLEN + sizeof(*ip6) > data_end)
 		return DROP_INVALID;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, ingress);
 
 	nexthdr = ip6->nexthdr;
 	ipv6_addr_copy(&key.address, dst);
@@ -114,10 +115,11 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 #endif
 
 #ifndef LB_DISABLE_IPV4
-static inline int handle_ipv4(struct __sk_buff *skb)
+static inline int handle_ipv4(PKT_BUFF *skb)
 {
-	void *data = (void *) (long) skb->data;
-	void *data_end = (void *) (long) skb->data_end;
+	void *data = (void *) (long) PKT_BUFF_DATA(skb);
+	void *data_end = (void *) (long) PKT_BUFF_DATA_END(skb);
+	__u32 ingress = PKT_BUFF_IFINDEX(skb);
 	struct lb4_key key = {};
 	struct lb4_service *svc;
 	struct iphdr *ip = data + ETH_HLEN;
@@ -130,7 +132,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	if (data + ETH_HLEN + sizeof(*ip) > data_end)
 		return DROP_INVALID;
 
-	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, skb->ingress_ifindex);
+	cilium_trace_capture(skb, DBG_CAPTURE_FROM_LB, ingress);
 
 	nexthdr = ip->protocol;
 	key.address = ip->daddr;
@@ -169,13 +171,14 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 #endif
 
 __section("from-netdev")
-int from_netdev(struct __sk_buff *skb)
+int from_netdev(PKT_BUFF *skb)
 {
+	__u32 protocol = PKT_BUFF_PROTOCOL(skb);
 	int ret;
 
-	bpf_clear_cb(skb);
+	PKT_BUFF_CLEAR(skb);
 
-	switch (skb->protocol) {
+	switch (protocol) {
 #ifndef LB_DISABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		ret = handle_ipv6(skb);
@@ -206,7 +209,7 @@ int from_netdev(struct __sk_buff *skb)
 			ret = DROP_WRITE_ERROR;
 #endif
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		return redirect(ifindex, 0);
+		return REDIRECT(ifindex, 0);
 	}
 #endif
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);

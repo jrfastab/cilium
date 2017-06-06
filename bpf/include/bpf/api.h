@@ -163,10 +163,17 @@ static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, uint32_t off,
 static int BPF_FUNC(skb_store_bytes, struct __sk_buff *skb, uint32_t off,
 		    const void *from, uint32_t len, uint32_t flags);
 
+#ifdef USE_XDP
+static int BPF_FUNC(l3_csum_replace, struct xdp_md *xdp, uint32_t off,
+		    uint32_t from, uint32_t to, uint32_t flags);
+static int BPF_FUNC(l4_csum_replace, struct xdp_md *xdp, uint32_t off,
+		    uint32_t from, uint32_t to, uint32_t flags);
+#else
 static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, uint32_t off,
 		    uint32_t from, uint32_t to, uint32_t flags);
 static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, uint32_t off,
 		    uint32_t from, uint32_t to, uint32_t flags);
+#endif
 static int BPF_FUNC(csum_diff, void *from, uint32_t from_size, void *to,
 		    uint32_t to_size, uint32_t seed);
 

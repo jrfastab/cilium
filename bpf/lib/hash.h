@@ -16,6 +16,9 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#ifndef __LIB_HASH_H_
+#define __LIB_HASH_H_
+
 /**
  * rol32 - rotate a 32-bit value left
  * @word: value to rotate
@@ -354,3 +357,4 @@ static inline int xdp_l3_csum_replace(struct xdp_md *xdp, __u32 offset,
 {
 	return 0;
 }
+#endif

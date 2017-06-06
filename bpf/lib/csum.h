@@ -23,6 +23,8 @@
 #include <linux/udp.h>
 #include <linux/icmpv6.h>
 
+#include "hash.h"
+
 #define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
 #define UDP_CSUM_OFF (offsetof(struct udphdr, check))
 
@@ -72,10 +74,10 @@ static inline void csum_l4_offset_and_flags(__u8 nexthdr, struct csum_offset *of
  * @arg to	To value or a csum diff
  * @arg flags	Additional flags to be passed to l4_csum_replace()
  */
-static inline int csum_l4_replace(struct __sk_buff *skb, int l4_off, struct csum_offset *csum,
+static inline int csum_l4_replace(PKT_BUFF *skb, int l4_off, struct csum_offset *csum,
 				  int from, int to, int flags)
 {
-	return l4_csum_replace(skb, l4_off + csum->offset, from, to, flags | csum->flags);
+	return L4_CSUM_REPLACE(skb, l4_off + csum->offset, from, to, flags | csum->flags);
 }
 
 #endif /* __LB_H_ */

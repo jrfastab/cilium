@@ -271,7 +271,7 @@ static inline int __inline__ __lb6_rev_nat(struct __sk_buff *skb, int l4_off,
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
+	sum = CSUM_DIFF(old_saddr.addr, 16, new_saddr, 16, 0);
 	if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
@@ -387,7 +387,7 @@ static inline int __inline__ lb6_xlate(struct __sk_buff *skb, union v6addr *new_
 	ipv6_store_daddr(skb, new_dst->addr, l3_off);
 
 	if (csum_off) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+		__be32 sum = CSUM_DIFF(key->address.addr, 16, new_dst->addr, 16, 0);
 		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
@@ -476,7 +476,7 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 		if (IS_ERR(ret))
 			return DROP_WRITE_ERROR;
 
-		sum = csum_diff(&old_dip, 4, &old_sip, 4, 0);
+		sum = CSUM_DIFF(&old_dip, 4, &old_sip, 4, 0);
 
 		/* Update the tuple address which is representing the destination address */
 		tuple->saddr = old_sip;
@@ -486,7 +486,7 @@ static inline int __inline__ __lb4_rev_nat(struct __sk_buff *skb, int l3_off, in
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&old_sip, 4, &new_sip, 4, sum);
+	sum = CSUM_DIFF(&old_sip, 4, &new_sip, 4, sum);
 	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
@@ -611,7 +611,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 	if (ret < 0)
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&key->address, 4, new_daddr, 4, 0);
+	sum = CSUM_DIFF(&key->address, 4, new_daddr, 4, 0);
 
 	if (new_saddr && *new_saddr) {
 		cilium_trace_lb(skb, DBG_LB4_LOOPBACK_SNAT, *old_saddr, *new_saddr);
@@ -619,7 +619,7 @@ lb4_xlate(struct __sk_buff *skb, __be32 *new_daddr, __be32 *new_saddr,
 		if (ret < 0)
 			return DROP_WRITE_ERROR;
 
-		sum = csum_diff(old_saddr, 4, new_saddr, 4, sum);
+		sum = CSUM_DIFF(old_saddr, 4, new_saddr, 4, sum);
 	}
 
 	if (l3_csum_replace(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)

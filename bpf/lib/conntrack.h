@@ -454,7 +454,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 			if (orig_was_proxy) {
 				proxy_port = 0;
 			} else {
-				proxy_port = l4_ingress_policy(skb, tuple->dport, tuple->nexthdr);
+				proxy_port = l4_ingress_policy(tuple->dport, tuple->nexthdr);
 				if (IS_ERR(proxy_port))
 					return proxy_port;
 			}
@@ -470,7 +470,7 @@ static inline int __inline__ ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 			/* Resolve L4 policy. This may fail due to policy reasons. May
 			 * optonally return a proxy port number to redirect all traffic to.
 			 */
-			proxy_port = l4_egress_policy(skb, tuple->dport, tuple->nexthdr);
+			proxy_port = l4_egress_policy(tuple->dport, tuple->nexthdr);
 			if (IS_ERR(proxy_port))
 				return proxy_port;
 
@@ -546,7 +546,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 			if (orig_was_proxy) {
 				proxy_port = 0;
 			} else {
-				proxy_port = l4_ingress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+				proxy_port = l4_ingress_policy(ct_state->orig_dport, tuple->nexthdr);
 				if (IS_ERR(proxy_port))
 					return proxy_port;
 			}
@@ -562,7 +562,7 @@ static inline int __inline__ ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 			/* Resolve L4 policy. This may fail due to policy reasons. May
 			 * optonally return a proxy port number to redirect all traffic to.
 			 */
-			proxy_port = l4_egress_policy(skb, ct_state->orig_dport, tuple->nexthdr);
+			proxy_port = l4_egress_policy(ct_state->orig_dport, tuple->nexthdr);
 			if (IS_ERR(proxy_port))
 				return proxy_port;
 

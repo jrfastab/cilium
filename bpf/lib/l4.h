@@ -174,7 +174,7 @@ static inline int __inline__ l4_egress_embedded(__u16 dport, __u8 nexthdr)
  *          n < 0 if connection should be dropped with reason n
  */
 static inline int __inline__
-l4_ingress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
+l4_ingress_policy(__u16 dport, __u8 nexthdr)
 {
 #ifdef CFG_L4_INGRESS
 	return l4_ingress_embedded(dport, nexthdr);
@@ -198,7 +198,7 @@ l4_ingress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
  *          n < 0 if connection should be dropped with reason n
  */
 static inline int __inline__
-l4_egress_policy(struct __sk_buff *skb, __u16 dport, __u8 nexthdr)
+l4_egress_policy(__u16 dport, __u8 nexthdr)
 {
 #ifdef CFG_L4_EGRESS
 	return l4_egress_embedded(dport, nexthdr);

@@ -344,8 +344,8 @@ struct proxy6_tbl_value {
 #define PKT_LOAD_BYTES(...)  xdp_load_bytes(__VA_ARGS__)
 
 #define CSUM_DIFF(a,b,c,d,e) xdp_csum_diff((__be32 *)a, (__u32)b, (__be32 *)c, (__u32)d, (__u32)e)
-#define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, (__u32)b, (__u64)c, (__u64)d, (__u64)e)
-#define L3_CSUM_REPLACE(a,b,c,d,e) xdp_l3_csum_replace((struct xdp_md *)a, (__u32)b, (__u64)c, (__u64)d, (__u64)e)
+#define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, b, c, d, e)
+#define L3_CSUM_REPLACE(a,b,c,d,e) xdp_l3_csum_replace((struct xdp_md *)a, b, c, d, e)
 
 #define REDIRECT(...) XDP_TX
 
@@ -361,8 +361,8 @@ static inline __be16 xdp_get_protocol(struct xdp_md *xdp)
 	return eth->h_proto;
 }
 
-static inline int xdp_store_bytes(struct xdp_md *xdp, __u32 offset,
-				  const void *from, __u32 len, __u64 flags)
+static inline int xdp_store_bytes(struct xdp_md *xdp, __u64 offset,
+				  const void *from, __u64 len, __u64 flags)
 {
 	void *ptr = (void *) (long) xdp->data;
 	void *end = (void *) (long) xdp->data_end;
@@ -382,8 +382,8 @@ static inline int xdp_store_bytes(struct xdp_md *xdp, __u32 offset,
 	return 0;
 }
 
-static inline int xdp_load_bytes(struct xdp_md *xdp, __u32 offset,
-				 void * to, __u32 len)
+static inline int xdp_load_bytes(struct xdp_md *xdp, __u64 offset,
+				 void * to, __u64 len)
 {
 	void *ptr = (void *) (long) xdp->data;
 	void *end = (void *) (long) xdp->data_end;

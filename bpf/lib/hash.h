@@ -19,6 +19,8 @@
 #ifndef __LIB_HASH_H_
 #define __LIB_HASH_H_
 
+#include <stdbool.h>
+
 /**
  * rol32 - rotate a 32-bit value left
  * @word: value to rotate
@@ -238,45 +240,69 @@ static inline __u16 csum_fold(__u32 csum)
 	return (__u16)~sum;
 }
 
-static inline __u32 csum_add(__u32 csum, __u32 addend)
+static inline __u32 csum_add(__u32 res, __u32 addend)
 {
-	__u32 res = (__u32)csum;
-	res += (__u32)addend;
-	return (__u32)(res + (res < (__u32)addend));
+	res += addend;
+	return (res + (res < addend));
+}
+
+static inline __u32 csum_sub(__u32 csum, __u32 addend)
+{
+	return csum_add(csum, ~addend);
+}
+
+static inline __u32 csum_unfold(__u16 n)
+{
+	return (__u32)n;
+}
+
+static inline void csum_replace4(__u16 *sum, __be32 from, __be32 to)
+{
+	__u32 tmp = csum_sub(~csum_unfold(*sum), (__u32)from);
+
+	*sum = csum_fold(csum_add(tmp, (__u32)to));
 }
 
 static inline void inet_proto_csum_replace4(__sum16 *sum, struct xdp_md *xdp,
 					    __be32 from, __be32 to,
 					    int pseudohdr)
 {
-#if 0
-	if (xdp->ip_summed != CHECKSUM_PARTIAL) {
-		csum_replace4(sum, from, to);
-		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
-			skb->csum = ~csum_add(csum_sub(~(skb->csum),
-						       (__force __wsum)from),
-					      (__force __wsum)to);
-	} else if (pseudohdr)
-		*sum = ~csum_fold(csum_add(csum_sub(csum_unfold(*sum),
-						    (__force __wsum)from),
-					   (__force __wsum)to));
-#endif
+	//csum_replace4(sum, from, to);
 }
 
-#if 0
-static inline void inet_proto_csum_replace_by_diff(__sum16 *sum, struct sk_buff *skb,
-				     __wsum diff, bool pseudohdr)
+static inline void inet_proto_csum_replace2(__u16 *sum, struct xdp_md *xdp,
+					    __be16 from, __be16 to,
+					    bool pseudohdr)
 {
-	if (skb->ip_summed != CHECKSUM_PARTIAL) {
-		*sum = csum_fold(csum_add(diff, ~csum_unfold(*sum)));
-		if (skb->ip_summed == CHECKSUM_COMPLETE && pseudohdr)
-			skb->csum = ~csum_add(diff, ~skb->csum);
-	} else if (pseudohdr) {
-		*sum = ~csum_fold(csum_add(diff, csum_unfold(*sum)));
-	}
+	//inet_proto_csum_replace4(sum, xdp, (__be32)from, (__be32)to, pseudohdr);
 }
-#endif
 
+static inline int inet_proto_csum_replace_by_diff(__u16 *sum,
+						   struct xdp_md *xdp,
+						   __u16 csum,
+						   __u32 diff,
+						   bool pseudohdr)
+{
+	void *data = (void *)(long) xdp->data;
+	void *end = (void *)(long) xdp->data_end;
+	__u32 unfold;
+
+	if (csum > 0x7fff || csum & 1)
+		return -1;
+
+	if (data + csum > end)
+		return -1;
+
+	//csum = csum_add(diff, csum);
+	//csum_fold(csum);
+	//if (csum < 0xffff)
+	//	*sum = (csum & 0xffff);
+	//memcpy(sum, &csum, sizeof(csum));
+	//*sum = csum_fold(csum_add(diff, unfold));
+	csum = csum_fold(csum_add(diff, (__u32)csum));
+	//*sum = csum;
+	return csum;
+}
 
 #define MAX_BPF_STACK 512 // kernel parameter
 
@@ -305,36 +331,69 @@ static inline __be32 xdp_csum_diff(__be32 *from, __u32 from_size,
 		diff[j] = to[i];
 
 	return csum_partial(diff, diff_size, seed);
+	return 0;
 }
 
-static inline int xdp_l4_csum_replace(struct xdp_md *xdp, __u32 offset,
+#define CSUM_MANGLED_0 ((__u16)0xffff)
+
+static inline int xdp_l4_csum_replace(struct xdp_md *xdp, __u16 offset,
 				      __u64 from, __u64 to, __u64 flags)
 {
 #if 0
 	bool is_pseudo = flags & BPF_F_PSEUDO_HDR;
 	bool is_mmzero = flags & BPF_F_MARK_MANGLED_0;
 	bool do_mforce = flags & BPF_F_MARK_ENFORCE;
+#endif
+	void *data = (void *)(long) xdp->data;
+	void *end = (void *)(long) xdp->data_end;
 	__u16 *ptr;
+	__u16 csum;
 
+#if 0
 	if (flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_MARK_ENFORCE |
 		      BPF_F_PSEUDO_HDR | BPF_F_HDR_FIELD_MASK))
 		return DROP_INVALID;
+
 	if (offset > 0xffff || offset & 1)
 		return DROP_INVALID;
 
-	if (xdp->data + offset > xdp->end)
+	if (data + offset + sizeof(*ptr) > end)
+		return DROP_INVALID;
+#endif
+	if (data + sizeof(*ptr) > end)
 		return DROP_INVALID;
 
-	ptr = (__u16 *)(xdp->data + offset);
+	ptr = data;// + offset;
+	csum = 1;
+	*ptr = csum;
+	//*(__u16 *) data = 1;//csum;
+	//csum = 1;//to;
+
+#if 0
 	if (is_mmzero && !do_mforce && !*ptr)
 		return DROP_INVALID;
 
+	//csum = csum_add(to, csum);
+	//to += csum;
+	//csum = (to + (to < csum));
+	csum = inet_proto_csum_replace_by_diff(ptr, xdp, csum, to, is_pseudo);
+#endif
+
+#if 0
 	switch (flags & BPF_F_HDR_FIELD_MASK) {
 	case 0:
 		if (from != 0)
 			return DROP_INVALID;
 
-		inet_proto_csum_replace_by_diff(ptr, xdp, to, is_pseudo);
+		csum = *ptr;
+
+		if (data + offset + sizeof(*ptr) > end)
+			return DROP_INVALID;
+
+		ptr = (__u16 *)(data + offset);
+
+		*ptr = csum;
+
 		break;
 	case 2:
 		inet_proto_csum_replace2(ptr, xdp, from, to, is_pseudo);
@@ -349,6 +408,7 @@ static inline int xdp_l4_csum_replace(struct xdp_md *xdp, __u32 offset,
 	if (is_mmzero && !*ptr)
 		*ptr = CSUM_MANGLED_0;
 #endif
+
 	return 0;
 }
 

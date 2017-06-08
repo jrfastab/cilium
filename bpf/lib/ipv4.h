@@ -24,7 +24,7 @@
 
 static inline int ipv4_load_daddr(PKT_BUFF *skb, int off, __u32 *dst)
 {
-	return PKT_LOAD_BYTES(skb, off + offsetof(struct iphdr, daddr), dst, 4);
+	return 0;//PKT_LOAD_BYTES(skb, off + offsetof(struct iphdr, daddr), dst, 4);
 }
 
 static inline int ipv4_dec_ttl(PKT_BUFF *skb, int off, struct iphdr *ip4)

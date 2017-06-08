@@ -49,22 +49,53 @@
 
 #define NEXTHDR_MAX             255
 
-static inline int ipv6_optlen(struct ipv6_opt_hdr *opthdr)
+static inline __u64 ipv6_optlen(struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
 }
 
-static inline int ipv6_authlen(struct ipv6_opt_hdr *opthdr)
+static inline __u64 ipv6_authlen(struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 2) << 2;
 }
 
-static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthdr)
+static inline __u32 __inline__ ipv6_hdrlen(PKT_BUFF *skb, __u64 l3_off, __u8 *nexthdr)
 {
-	int i, len = sizeof(struct ipv6hdr);
-	struct ipv6_opt_hdr opthdr;
+	int i;
+	struct ipv6_opt_hdr opthdr = {};
 	__u8 nh = *nexthdr;
+	volatile __u16 len = 0;//, def_len;
 
+#if 0
+	switch (nh) {
+		case NEXTHDR_NONE:
+			return DROP_INVALID_EXTHDR;
+
+		case NEXTHDR_FRAGMENT:
+			return DROP_FRAG_NOSUPPORT;
+
+		case NEXTHDR_HOP:
+		case NEXTHDR_ROUTING:
+		case NEXTHDR_AUTH:
+		case NEXTHDR_DEST:
+			def_len = ETH_HLEN + sizeof(struct ipv6hdr);
+
+			def_len &= 0xffff;
+			if (PKT_LOAD_BYTES(skb, def_len, &opthdr, 4) < 0)
+				return DROP_INVALID;
+
+			nh = opthdr.nexthdr;
+			if (nh == NEXTHDR_AUTH)
+				len += ipv6_authlen(&opthdr);
+			else
+				len += ipv6_optlen(&opthdr);
+			break;
+		default:
+			return ETH_HLEN + sizeof(struct ipv6hdr);
+	}
+#endif
+
+	len += l3_off + sizeof(struct ipv6hdr);
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
 		switch (nh) {
@@ -78,7 +109,8 @@ static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthd
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			if (PKT_LOAD_BYTES(skb, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
+			len &= 0x7fff;
+			if (PKT_LOAD_BYTES(skb, len, &opthdr, 4) < 0)
 				return DROP_INVALID;
 
 			nh = opthdr.nexthdr;
@@ -90,7 +122,7 @@ static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthd
 
 		default:
 			*nexthdr = nh;
-			return len;
+			return len - l3_off;
 		}
 	}
 
@@ -179,8 +211,8 @@ static inline int ipv6_dec_hoplimit(struct __sk_buff *skb, int off)
 
 static inline int ipv6_load_saddr(PKT_BUFF *skb, int off, union v6addr *dst)
 {
-	return PKT_LOAD_BYTES(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
-			      sizeof(((struct ipv6hdr *)NULL)->saddr));
+	return 0;//PKT_LOAD_BYTES(skb, off + offsetof(struct ipv6hdr, saddr), dst->addr,
+	//		      sizeof(((struct ipv6hdr *)NULL)->saddr));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */
@@ -191,8 +223,8 @@ static inline int ipv6_store_saddr(PKT_BUFF *skb, __u8 *addr, int off)
 
 static inline int ipv6_load_daddr(PKT_BUFF *skb, int off, union v6addr *dst)
 {
-	return PKT_LOAD_BYTES(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
-			      sizeof(((struct ipv6hdr *)NULL)->daddr));
+	return 0;//PKT_LOAD_BYTES(skb, off + offsetof(struct ipv6hdr, daddr), dst->addr,
+	//		      sizeof(((struct ipv6hdr *)NULL)->daddr));
 }
 
 /* Assumes that caller fixes checksum csum_diff() and l4_csum_replace() */

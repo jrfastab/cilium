@@ -140,7 +140,7 @@ static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
 	/* Ugly workaround for 4.8 kernel where we don't have this function. */
 	__u32 tmp;
 
-	PKT_LOAD_BYTES(skb,  0, &tmp, sizeof(tmp));
+	//PKT_LOAD_BYTES(skb,  0, &tmp, sizeof(tmp));
 	PKT_STORE_BYTES(skb, 0, &tmp, sizeof(tmp), BPF_F_INVALIDATE_HASH);
 #endif
 	return get_hash_recalc(skb);
@@ -326,8 +326,10 @@ static inline int __inline__ __lb6_rev_nat(PKT_BUFF *skb, int l4_off,
 		return DROP_WRITE_ERROR;
 
 	sum = CSUM_DIFF(old_saddr.addr, 16, new_saddr, 16, 0);
+#if 0
 	if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
+#endif
 
 	return 0;
 }
@@ -378,7 +380,7 @@ static inline int __inline__ lb6_extract_key(PKT_BUFF *skb, struct ipv6_ct_tuple
 
 	addr = (dir == CT_INGRESS) ? &tuple->saddr : &tuple->daddr;
 	ipv6_addr_copy(&key->address, addr);
-	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
+	//csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
 #ifdef LB_L4
 	return extract_l4_port(skb, tuple->nexthdr, l4_off, &key->dport);
@@ -441,9 +443,11 @@ static inline int __inline__ lb6_xlate(PKT_BUFF *skb, union v6addr *new_dst, __u
 	ipv6_store_daddr(skb, new_dst->addr, l3_off);
 
 	if (csum_off) {
-		__be32 sum = CSUM_DIFF(key->address.addr, 16, new_dst->addr, 16, 0);
+		__be32 sum = 0;//CSUM_DIFF(key->address.addr, 16, new_dst->addr, 16, 0);
+#if 1
 		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
+#endif
 	}
 
 #ifdef LB_L4
@@ -505,7 +509,7 @@ static inline int __inline__ __lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off
 		old_sip = tuple->saddr;
 		tuple->saddr = new_sip = nat->address;
 	} else {
-		ret = PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
+		ret = 0;//PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -520,7 +524,7 @@ static inline int __inline__ __lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off
 		 * address the new destination address */
 		__be32 old_dip;
 
-		ret = PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
+		ret = 0;//PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -544,9 +548,11 @@ static inline int __inline__ __lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off
 	if (L3_CSUM_REPLACE(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
+#if 0
 	if (csum_off->offset &&
 	    csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
+#endif
 
 	return 0;
 }
@@ -679,10 +685,12 @@ lb4_xlate(PKT_BUFF *skb, __be32 *new_daddr, __be32 *new_saddr,
 	if (L3_CSUM_REPLACE(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
+#if 0
 	if (csum_off->offset) {
 		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
+#endif
 
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&

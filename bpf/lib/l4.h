@@ -50,8 +50,10 @@
 static inline int l4_modify_port(PKT_BUFF *skb, int l4_off, int off,
 				 struct csum_offset *csum_off, __u16 port, __u16 old_port)
 {
+#if 0
 	if (csum_l4_replace(skb, l4_off, csum_off, old_port, port, sizeof(port)) < 0)
 		return DROP_CSUM_L4;
+#endif
 
 	if (PKT_STORE_BYTES(skb, l4_off + off, &port, sizeof(port), 0) < 0)
 		return DROP_WRITE_ERROR;
@@ -119,7 +121,7 @@ static inline int l4_port_map_out(PKT_BUFF *skb, int l4_off,
 
 static inline int l4_load_port(PKT_BUFF *skb, int off, __u16 *port)
 {
-        return PKT_LOAD_BYTES(skb, off, port, sizeof(__u16));
+        return 0;//PKT_LOAD_BYTES(skb, off, port, sizeof(__u16));
 }
 
 /* Structure to define an L4 port which may ingress into an endpoint */

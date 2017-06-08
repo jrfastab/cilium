@@ -49,22 +49,24 @@
 
 #define NEXTHDR_MAX             255
 
-static inline int ipv6_optlen(struct ipv6_opt_hdr *opthdr)
+static inline __u64 ipv6_optlen(struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
 }
 
-static inline int ipv6_authlen(struct ipv6_opt_hdr *opthdr)
+static inline __u64 ipv6_authlen(struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 2) << 2;
 }
 
-static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthdr)
+static inline __u32 __inline__ ipv6_hdrlen(PKT_BUFF *skb, __u64 l3_off, __u8 *nexthdr)
 {
-	int i, len = sizeof(struct ipv6hdr);
-	struct ipv6_opt_hdr opthdr;
+	int i;
+	struct ipv6_opt_hdr opthdr = {};
 	__u8 nh = *nexthdr;
+	volatile __u16 len = 0;
 
+	len += l3_off + sizeof(struct ipv6hdr);
 #pragma unroll
 	for (i = 0; i < IPV6_MAX_HEADERS; i++) {
 		switch (nh) {
@@ -78,7 +80,7 @@ static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthd
 		case NEXTHDR_ROUTING:
 		case NEXTHDR_AUTH:
 		case NEXTHDR_DEST:
-			if (PKT_LOAD_BYTES(skb, l3_off + len, &opthdr, sizeof(opthdr)) < 0)
+			if (PKT_LOAD_BYTES(skb, len, &opthdr, sizeof(opthdr)) < 0)
 				return DROP_INVALID;
 
 			nh = opthdr.nexthdr;
@@ -90,7 +92,7 @@ static inline int __inline__ ipv6_hdrlen(PKT_BUFF *skb, int l3_off, __u8 *nexthd
 
 		default:
 			*nexthdr = nh;
-			return len;
+			return len - l3_off;
 		}
 	}
 

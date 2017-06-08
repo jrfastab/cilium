@@ -79,7 +79,8 @@ static inline int handle_ipv6(PKT_BUFF *skb)
 	ipv6_addr_copy(&key.address, dst);
 	l3_off = ETH_HLEN;
 	l4_off = ETH_HLEN + ipv6_hdrlen(skb, ETH_HLEN, &nexthdr);
-	csum_l4_offset_and_flags(nexthdr, &csum_off);
+	//csum_l4_offset_and_flags(nexthdr, &csum_off);
+	printk("%d\n", l4_off);
 
 #ifdef LB_L4
 	ret = extract_l4_port(skb, nexthdr, l4_off, &key.dport);

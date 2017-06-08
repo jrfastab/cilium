@@ -72,7 +72,7 @@ static inline int eth_store_saddr(struct __sk_buff *skb, __u8 *mac, int off)
 
 static inline int eth_load_daddr(PKT_BUFF *skb, __u8 *mac, int off)
 {
-	return PKT_LOAD_BYTES(skb, off, mac, ETH_ALEN);
+	return 0;//PKT_LOAD_BYTES(skb, off, mac, ETH_ALEN);
 }
 
 static inline int eth_store_daddr(PKT_BUFF *skb, __u8 *mac, int off)

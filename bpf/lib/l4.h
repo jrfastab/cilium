@@ -119,7 +119,7 @@ static inline int l4_port_map_out(PKT_BUFF *skb, int l4_off,
 
 static inline int l4_load_port(PKT_BUFF *skb, int off, __u16 *port)
 {
-        return PKT_LOAD_BYTES(skb, off, port, sizeof(__u16));
+        return 0;//PKT_LOAD_BYTES(skb, off, port, sizeof(__u16));
 }
 
 /* Structure to define an L4 port which may ingress into an endpoint */

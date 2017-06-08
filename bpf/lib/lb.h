@@ -140,7 +140,7 @@ static inline __u32 lb_enforce_rehash(struct __sk_buff *skb)
 	/* Ugly workaround for 4.8 kernel where we don't have this function. */
 	__u32 tmp;
 
-	PKT_LOAD_BYTES(skb,  0, &tmp, sizeof(tmp));
+	//PKT_LOAD_BYTES(skb,  0, &tmp, sizeof(tmp));
 	PKT_STORE_BYTES(skb, 0, &tmp, sizeof(tmp), BPF_F_INVALIDATE_HASH);
 #endif
 	return get_hash_recalc(skb);
@@ -505,7 +505,7 @@ static inline int __inline__ __lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off
 		old_sip = tuple->saddr;
 		tuple->saddr = new_sip = nat->address;
 	} else {
-		ret = PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
+		ret = 0;//PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -520,7 +520,7 @@ static inline int __inline__ __lb4_rev_nat(PKT_BUFF *skb, int l3_off, int l4_off
 		 * address the new destination address */
 		__be32 old_dip;
 
-		ret = PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
+		ret = 0;//PKT_LOAD_BYTES(skb, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);
 		if (IS_ERR(ret))
 			return ret;
 

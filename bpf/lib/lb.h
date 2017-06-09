@@ -679,17 +679,17 @@ lb4_xlate(PKT_BUFF *skb, __be32 *new_daddr, __be32 *new_saddr,
 	if (L3_CSUM_REPLACE(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
-#if 0
-	if (csum_off->offset) {
-		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-			return DROP_CSUM_L4;
-	}
-#endif
-
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__u16 tmp = svc->port;
+
+#if 0
+		if (csum_off->offset &&
+		    csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+#endif
+
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))

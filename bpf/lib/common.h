@@ -344,6 +344,7 @@ struct proxy6_tbl_value {
 #define PKT_LOAD_BYTES(...)  xdp_load_bytes(__VA_ARGS__)
 
 #define CSUM_DIFF(a,b,c,d,e) xdp_csum_diff((__be32 *)a, (__u32)b, (__be32 *)c, (__u32)d, (__u32)e)
+//#define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, b, c, d, e)
 #define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, b, c, d, e)
 #define L3_CSUM_REPLACE(a,b,c,d,e) xdp_l3_csum_replace((struct xdp_md *)a, b, c, d, e)
 
@@ -361,7 +362,7 @@ static inline __be16 xdp_get_protocol(struct xdp_md *xdp)
 	return eth->h_proto;
 }
 
-static inline int xdp_store_bytes(struct xdp_md *xdp, __u64 offset,
+static inline int xdp_store_bytes(struct xdp_md *xdp, __u16 offset,
 				  const void *from, __u64 len, __u64 flags)
 {
 	void *ptr = (void *) (long) xdp->data;
@@ -387,6 +388,8 @@ static inline int xdp_load_bytes(struct xdp_md *xdp, __u64 offset,
 {
 	void *ptr = (void *) (long) xdp->data;
 	void *end = (void *) (long) xdp->data_end;
+
+	offset &= 0x7fff;
 
 	/* One might suspect an optimization would be to only do bounds check
 	 * once per pkt, where length is calculated upfront. Saving a few

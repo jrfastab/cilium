@@ -150,22 +150,31 @@ static inline int handle_ipv4(PKT_BUFF *skb)
 			return ret;
 	}
 #endif
+	printk("extract lb ports %d\n", key.dport);
 
 	svc = lb4_lookup_service(skb, &key);
 	if (svc == NULL) {
+		printk("no service pass to stack\n");
 		/* Pass packets to the stack which should not be loadbalanced */
 		return TC_ACT_OK;
 	}
+	printk("found lb service %d\n", key.dport);
 
 	slave = lb4_select_slave(skb, &key, svc->count, svc->weight);
-	if (!(svc = lb4_lookup_slave(skb, &key, slave)))
+	if (!(svc = lb4_lookup_slave(skb, &key, slave))) {
+		printk("no slave drop\n");
 		return DROP_NO_SERVICE;
+	}
 
+	printk("selected slave %d\n", key.dport);
 	new_dst = svc->target;
 	ret = lb4_xlate(skb, &new_dst, NULL, NULL, nexthdr, l3_off, l4_off, &csum_off, &key, svc);
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		printk("error lb4 xlate\n");
 		return ret;
+	}
 
+	printk("tc act redirect %d\n", key.dport);
 	return TC_ACT_REDIRECT;
 }
 #endif
@@ -176,6 +185,7 @@ int from_netdev(PKT_BUFF *skb)
 	__u32 protocol = PKT_BUFF_PROTOCOL(skb);
 	int ret;
 
+	printk("from-netdev LB hook\n");
 	PKT_BUFF_CLEAR(skb);
 
 	switch (protocol) {
@@ -196,6 +206,8 @@ int from_netdev(PKT_BUFF *skb)
 		return TC_ACT_OK;
 	}
 
+	printk("return code %d\n", ret);
+
 	if (IS_ERR(ret))
 		return send_drop_notify_error(skb, ret, TC_ACT_SHOT);
 
@@ -209,9 +221,11 @@ int from_netdev(PKT_BUFF *skb)
 			ret = DROP_WRITE_ERROR;
 #endif
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
+		printk("redirect...\n");
 		return REDIRECT(ifindex, 0);
 	}
 #endif
+	printk("tc act ok...\n");
 	cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }

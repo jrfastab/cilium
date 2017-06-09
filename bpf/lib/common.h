@@ -344,6 +344,7 @@ struct proxy6_tbl_value {
 #define PKT_LOAD_BYTES(...)  xdp_load_bytes(__VA_ARGS__)
 
 #define CSUM_DIFF(a,b,c,d,e) xdp_csum_diff((__be32 *)a, (__u32)b, (__be32 *)c, (__u32)d, (__u32)e)
+//#define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, b, c, d, e)
 #define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, b, c, d, e)
 #define L3_CSUM_REPLACE(a,b,c,d,e) xdp_l3_csum_replace((struct xdp_md *)a, b, c, d, e)
 

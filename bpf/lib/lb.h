@@ -654,7 +654,7 @@ static inline struct lb4_service *lb4_lookup_slave(PKT_BUFF *skb,
 
 static inline int __inline__
 lb4_xlate(PKT_BUFF *skb, __be32 *new_daddr, __be32 *new_saddr,
-	  __be32 *old_saddr, __u8 nexthdr, int l3_off, int l4_off,
+	  __be32 *old_saddr, __u8 nexthdr, int l3_off, __u16 l4_off,
 	  struct csum_offset *csum_off, struct lb4_key *key,
 	  struct lb4_service *svc)
 {
@@ -679,17 +679,15 @@ lb4_xlate(PKT_BUFF *skb, __be32 *new_daddr, __be32 *new_saddr,
 	if (L3_CSUM_REPLACE(skb, l3_off + offsetof(struct iphdr, check), 0, sum, 0) < 0)
 		return DROP_CSUM_L3;
 
-#if 0
-	if (csum_off->offset) {
-		if (csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-			return DROP_CSUM_L4;
-	}
-#endif
-
 #ifdef LB_L4
 	if (svc->port && key->dport != svc->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__u16 tmp = svc->port;
+
+		if (csum_off->offset &&
+		    csum_l4_replace(skb, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(skb, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
 		if (IS_ERR(ret))

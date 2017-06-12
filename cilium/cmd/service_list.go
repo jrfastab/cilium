@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"text/tabwriter"
 
 	"github.com/cilium/cilium/common/types"
 
@@ -40,30 +39,14 @@ func init() {
 }
 
 func listServices() {
-
 	list, err := client.GetServices()
 	if err != nil {
 		Fatalf("Cannot get services list: %s", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tFrontend\tBackend\t")
-
-	type ServiceOutput struct {
-		ID               int64
-		FrontendAddress  string
-		BackendAddresses []string
-	}
-	svcs := []ServiceOutput{}
-
+	svcs := map[string][]string{}
 	for _, svc := range list {
-		feA, err := types.NewL3n4AddrFromModel(svc.FrontendAddress)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.FrontendAddress)
-			continue
-		}
-
-		var backendAddresses []string
+		besWithID := []string{}
 		for i, be := range svc.BackendAddresses {
 			beA, err := types.NewL3n4AddrFromBackendModel(be)
 			if err != nil {
@@ -72,45 +55,31 @@ func listServices() {
 			}
 			var str string
 			if be.Weight != 0 {
-				str = fmt.Sprintf("%d => %s (W: %d)", i+1, beA.String(), be.Weight)
+				str = fmt.Sprintf("%d => %s (W: %d, ID: %d)", i+1, beA.String(), be.Weight, svc.ID)
 			} else {
-				str = fmt.Sprintf("%d => %s", i+1, beA.String())
+				str = fmt.Sprintf("%d => %s (%d)", i+1, beA.String(), svc.ID)
 			}
-			backendAddresses = append(backendAddresses, str)
+			besWithID = append(besWithID, str)
 		}
 
-		SvcOutput := ServiceOutput{
-			ID:               svc.ID,
-			FrontendAddress:  feA.String(),
-			BackendAddresses: backendAddresses,
-		}
-		svcs = append(svcs, SvcOutput)
-	}
-
-	sort.Slice(svcs, func(i, j int) bool {
-		return svcs[i].ID <= svcs[j].ID
-	})
-
-	for _, service := range svcs {
-		var str string
-
-		if len(service.BackendAddresses) == 0 {
-			str = fmt.Sprintf("%d\t%s\t\t",
-				service.ID, service.FrontendAddress)
-			fmt.Fprintln(w, str)
+		feA, err := types.NewL3n4AddrFromModel(svc.FrontendAddress)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing frontend %+v", svc.FrontendAddress)
 			continue
 		}
-
-		str = fmt.Sprintf("%d\t%s\t%s\t",
-			service.ID, service.FrontendAddress,
-			service.BackendAddresses[0])
-		fmt.Fprintln(w, str)
-
-		for _, bkaddr := range service.BackendAddresses[1:] {
-			str := fmt.Sprintf("\t\t%s\t", bkaddr)
-			fmt.Fprintln(w, str)
-		}
+		svcs[feA.String()] = besWithID
 	}
 
-	w.Flush()
+	var svcsKeys []string
+	for k := range svcs {
+		svcsKeys = append(svcsKeys, k)
+	}
+	sort.Strings(svcsKeys)
+
+	for _, svcKey := range svcsKeys {
+		fmt.Printf("%s =>\n", svcKey)
+		for _, be := range svcs[svcKey] {
+			fmt.Printf("\t\t%s\n", be)
+		}
+	}
 }

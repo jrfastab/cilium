@@ -46,7 +46,7 @@ function host_ip4()
 	ip -4 addr show cilium_host scope global | grep inet | awk '{print $2}' | sed -e 's/\/.*//'
 }
 
-trap cleanup EXIT
+#trap cleanup EXIT
 
 # Remove containers from a previously incomplete run
 cleanup
@@ -222,13 +222,14 @@ RUN=/var/run/cilium/state
 NH_IFINDEX=$(cat /sys/class/net/cilium_host/ifindex)
 NH_MAC=$(ip link show cilium_host | grep ether | awk '{print $2}')
 NH_MAC="{.addr=$(mac2array $NH_MAC)}"
-CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
+CLANG_OPTS="-D__NR_CPUS__=$(nproc) -DUSE_XDP -DLB_L3 -DLB_REDIRECT=$NH_IFINDEX -DLB_DSTMAC=$NH_MAC -DCALLS_MAP=lbtest -O2 -target bpf -I. -I$LIB/include -I$RUN/globals -DDEBUG -Wno-address-of-packed-member -Wno-unknown-warning-option"
 touch netdev_config.h
 clang $CLANG_OPTS -c $LIB/bpf_lb.c -o tmp_lb.o
 
 tc qdisc del dev lbtest2 clsact 2> /dev/null || true
 tc qdisc add dev lbtest2 clsact
-tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
+#tc filter add dev lbtest2 ingress bpf da obj tmp_lb.o sec from-netdev
+sudo ip -force link set dev lbtest2 xdpgeneric obj tmp_lb.o sec from-netdev
 
 docker network inspect $TEST_NET 2> /dev/null || {
 	docker network create --ipv6 --subnet ::1/112 --ipam-driver cilium --driver cilium $TEST_NET

@@ -348,7 +348,7 @@ struct proxy6_tbl_value {
 #define L4_CSUM_REPLACE(a,b,c,d,e) xdp_l4_csum_replace((struct xdp_md *)a, b, c, d, e)
 #define L3_CSUM_REPLACE(a,b,c,d,e) xdp_l3_csum_replace((struct xdp_md *)a, b, c, d, e)
 
-#define REDIRECT(...) XDP_TX
+#define REDIRECT(ifindex, flags) redirect(ifindex, flags)
 
 static inline __be16 xdp_get_protocol(struct xdp_md *xdp)
 {

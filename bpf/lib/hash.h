@@ -279,7 +279,6 @@ static inline void inet_proto_csum_replace2(__u16 *sum, volatile struct xdp_md *
 
 static inline void inet_proto_csum_replace_by_diff(__u16 *sum,
 						   volatile  struct xdp_md *xdp,
-						   __u16 csum,
 						   __u32 diff,
 						   bool pseudohdr)
 {
@@ -327,7 +326,6 @@ static inline int xdp_l4_csum_replace(volatile struct xdp_md *xdp, __u16 offset,
 	void *data = (void *)(long) xdp->data;
 	void *end = (void *)(long) xdp->data_end;
 	__u16 *ptr;
-	__u16 csum;
 
 	if (flags & ~(BPF_F_MARK_MANGLED_0 | BPF_F_MARK_ENFORCE |
 		      BPF_F_PSEUDO_HDR | BPF_F_HDR_FIELD_MASK))
@@ -347,7 +345,7 @@ static inline int xdp_l4_csum_replace(volatile struct xdp_md *xdp, __u16 offset,
 
 	switch (flags & BPF_F_HDR_FIELD_MASK) {
 	case 0:
-		inet_proto_csum_replace_by_diff(ptr, xdp, csum, to, is_pseudo);
+		inet_proto_csum_replace_by_diff(ptr, xdp, to, is_pseudo);
 		break;
 	case 2:
 		inet_proto_csum_replace2(ptr, xdp, from, to, is_pseudo);

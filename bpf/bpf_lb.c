@@ -221,7 +221,7 @@ int from_netdev(PKT_BUFF *skb)
 			ret = DROP_WRITE_ERROR;
 #endif
 		cilium_trace_capture(skb, DBG_CAPTURE_DELIVERY, ifindex);
-		printk("redirect...\n");
+		printk("redirect ifindex %i\n", ifindex);
 		return REDIRECT(ifindex, 0);
 	}
 #endif
